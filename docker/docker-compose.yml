@@ -2,7 +2,6 @@ version: '3.6'
 services:
 
   wordpress:
-    env_file: .env
     image: wordpress:${WORDPRESS_VERSION}
     container_name: ${COMPOSE_PROJECT_NAME}
     volumes:
@@ -20,7 +19,6 @@ services:
 
   # Command line interface to wordpress
   wpcli:
-    env_file: .env
     build: ./wpcli/
     image: wpcli
     container_name: ${COMPOSE_PROJECT_NAME}_wpcli
@@ -30,7 +28,6 @@ services:
 
 # Check availability of essential services
   healthcheck:
-    env_file: .env
     image: wpcli
     build: ./wpcli/
     container_name: ${COMPOSE_PROJECT_NAME}_healthcheck
