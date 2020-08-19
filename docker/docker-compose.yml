@@ -12,11 +12,6 @@ services:
       - WORDPRESS_DB_HOST=${WORDPRESS_DB_HOST}
       - WORDPRESS_DB_USER=${DATABASE_USER}
       - WORDPRESS_DB_PASSWORD=${DATABASE_PASSWORD}
-      - |
-        WORDPRESS_CONFIG_EXTRA=
-        define( 'FORCE_SSL_ADMIN', false );
-        define( 'WP_HOME', 'http://localhost' );
-        define( 'WP_SITEURL', 'http://localhost' );
     restart: always
     ports:
         - 80:80
