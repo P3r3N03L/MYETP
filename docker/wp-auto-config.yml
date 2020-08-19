@@ -1,0 +1,35 @@
+version: '3.6'
+services:
+
+  wp-auto-config:
+    env_file: .env
+    image: wpcli
+    build: ./wpcli/
+    container_name: ${COMPOSE_PROJECT_NAME}_wp_autoconfig
+    entrypoint: sh -c "/wait && make -f /scripts/Makefile"
+    volumes:
+      - ${WORDPRESS_DATA_DIR}:/var/www/html
+    working_dir: /var/www/html
+    depends_on:
+      - wordpress
+    environment:
+      # Waiting for MySQL and wordpress -------------------
+      - WAIT_HOSTS=${WORDPRESS_DB_HOST}:3306,wordpress:80
+      - WAIT_BEFORE_HOSTS=${WAIT_BEFORE_HOSTS}
+      - WAIT_AFTER_HOSTS=${WAIT_AFTER_HOSTS}
+      - WAIT_HOSTS_TIMEOUT=${WAIT_HOSTS_TIMEOUT}
+      - WAIT_SLEEP_INTERVAL=${WAIT_SLEEP_INTERVAL}
+      - WAIT_HOST_CONNECT_TIMEOUT=${WAIT_HOST_CONNECT_TIMEOUT}
+      # Wordpress configuration -----------------------------
+      - WORDPRESS_LOCALE=${WORDPRESS_LOCALE:-en_US}
+      - WORDPRESS_DB_NAME=${COMPOSE_PROJECT_NAME}
+      - WORDPRESS_DB_HOST=${WORDPRESS_DB_HOST}
+      - WORDPRESS_DB_USER=${DATABASE_USER}
+      - WORDPRESS_DB_PASSWORD=${DATABASE_PASSWORD}
+      - WORDPRESS_WEBSITE_TITLE=${WORDPRESS_WEBSITE_TITLE}
+      - WORDPRESS_WEBSITE_URL=${WORDPRESS_WEBSITE_URL}
+      - WORDPRESS_WEBSITE_URL_WITHOUT_HTTP=${WORDPRESS_WEBSITE_URL}
+      - WORDPRESS_WEBSITE_POST_URL_STRUCTURE=${WORDPRESS_WEBSITE_POST_URL_STRUCTURE}
+      - WORDPRESS_ADMIN_USER=${WORDPRESS_ADMIN_USER}
+      - WORDPRESS_ADMIN_PASSWORD=${WORDPRESS_ADMIN_PASSWORD}
+      - WORDPRESS_ADMIN_EMAIL=${WORDPRESS_ADMIN_EMAIL}
