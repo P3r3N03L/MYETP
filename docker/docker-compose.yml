@@ -1,0 +1,44 @@
+version: '3.6'
+services:
+
+  wordpress:
+    env_file: .env
+    image: wordpress:${WORDPRESS_VERSION}
+    container_name: ${COMPOSE_PROJECT_NAME}
+    volumes:
+      - ./config/php.conf.ini:/usr/local/etc/php/conf.d/php.ini
+      - ${WORDPRESS_DATA_DIR}:/var/www/html
+    environment:
+      - WORDPRESS_DB_NAME=${COMPOSE_PROJECT_NAME}
+      - WORDPRESS_DB_HOST=${WORDPRESS_DB_HOST}
+      - WORDPRESS_DB_USER=${DATABASE_USER}
+      - WORDPRESS_DB_PASSWORD=${DATABASE_PASSWORD}
+    restart: always
+    ports:
+        - 80:80
+        - 443:443
+
+  # Command line interface to wordpress
+  wpcli:
+    env_file: .env
+    build: ./wpcli/
+    image: wpcli
+    container_name: ${COMPOSE_PROJECT_NAME}_wpcli
+    volumes:
+      - ${WORDPRESS_DATA_DIR}:/var/www/html
+    working_dir: /var/www/html
+
+# Check availability of essential services
+  healthcheck:
+    env_file: .env
+    image: wpcli
+    build: ./wpcli/
+    container_name: ${COMPOSE_PROJECT_NAME}_healthcheck
+    command: sh -c "/wait"
+    environment:
+      - WAIT_HOSTS=${WORDPRESS_DB_HOST}:3306, wordpress:80
+      - WAIT_BEFORE_HOSTS=${WAIT_BEFORE_HOSTS}
+      - WAIT_AFTER_HOSTS=${WAIT_AFTER_HOSTS}
+      - WAIT_HOSTS_TIMEOUT=${WAIT_HOSTS_TIMEOUT}
+      - WAIT_SLEEP_INTERVAL=${WAIT_SLEEP_INTERVAL}
+      - WAIT_HOST_CONNECT_TIMEOUT=${WAIT_HOST_CONNECT_TIMEOUT}
