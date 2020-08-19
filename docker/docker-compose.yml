@@ -23,6 +23,8 @@ services:
         'secret-access-key' => '${IAM_SECRET}',
         // Bucket to upload files to
         'bucket' => '${S3_BUCKET}',
+        // Bucket region (e.g. 'us-west-1' - leave blank for default region)
+        'region' => 'eu-west-3',
         // Automatically copy files to bucket on upload
         'copy-to-s3' => true,
         // Enable object prefix, useful if you use your bucket for other files
