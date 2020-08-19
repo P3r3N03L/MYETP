@@ -12,6 +12,26 @@ services:
       - WORDPRESS_DB_HOST=${WORDPRESS_DB_HOST}
       - WORDPRESS_DB_USER=${DATABASE_USER}
       - WORDPRESS_DB_PASSWORD=${DATABASE_PASSWORD}
+      - |
+        WORDPRESS_CONFIG_EXTRA=
+        define( 'AS3CF_SETTINGS', serialize( array(
+        // Storage Provider ('aws', 'do', 'gcp')
+        'provider' => 'aws',
+        // Access Key ID for Storage Provider (aws and do only, replace '*')
+        'access-key-id' => '${IAM_ACCESS}',
+        // Secret Access Key for Storage Providers (aws and do only, replace '*')
+        'secret-access-key' => '${IAM_SECRET}',
+        // Bucket to upload files to
+        'bucket' => '${S3_BUCKET}',
+        // Automatically copy files to bucket on upload
+        'copy-to-s3' => true,
+        // Enable object prefix, useful if you use your bucket for other files
+        'enable-object-prefix' => true,
+        // Object prefix to use if 'enable-object-prefix' is 'true'
+        'object-prefix' => 'wp-content/uploads/',
+        // Rewrite file URLs to bucket
+        'serve-from-s3' => true,
+        ) ) );
     restart: always
     ports:
         - 80:80
