@@ -13,3 +13,5 @@ configure:
 	wp option update siteurl ${WORDPRESS_WEBSITE_URL}
 	wp rewrite structure $(WORDPRESS_WEBSITE_POST_URL_STRUCTURE)
 	wp theme activate twentyseventeen
+	wp plugin install amazon-web-services --activate
+	wp plugin install amazon-s3-and-cloudfront --activate
