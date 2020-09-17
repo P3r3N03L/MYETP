@@ -8,6 +8,7 @@ These files will allow administrators to launch an automated creation of an AWS 
 - Simple HTML intranet page
 - VPN configuration between a local subnet and an AWS private subnet using Strongswan
 - Docker website container
+- S3 Bucket with Media Offload plugin for Wordpress
 - AWS cloud infrastructure with network, RDS, autoscaling group for the website servers and EC2 instances for the intranet servers
 
 Howto :
