@@ -10,6 +10,9 @@ These files will allow administrators to launch an automated creation of an AWS 
 - Docker website container
 - Yaml script for the AWS cloud infrastructure
 
+Howto :
+
+Just change the Yaml script with your own parameters and launch it on the AWS Cloud Formation service.
 
 Prerequisites :
 
