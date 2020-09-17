@@ -1,0 +1,793 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: >-
+  AWS CloudFormation MYETP Template
+
+Resources:
+
+  MainVPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      Tags:
+        - Key: Name
+          Value: 'MainVPC'
+
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: eu-west-3c
+      CidrBlock: 10.0.0.0/24
+      Tags:
+        - Key: Name
+          Value: 'Private-1'
+      VpcId: !Ref MainVPC
+
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: eu-west-3a
+      CidrBlock: 10.0.100.0/24
+      Tags:
+        - Key: Name
+          Value: 'Public-1'
+      VpcId: !Ref MainVPC
+      
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: eu-west-3b
+      CidrBlock: 10.0.101.0/24
+      Tags:
+        - Key: Name
+          Value: 'Public-2'
+      VpcId: !Ref MainVPC
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties: 
+      Tags:
+        - Key: Name
+          Value: 'MainVPC-InternetGateway'
+
+  AttachInternetGateway:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    DependsOn: MainVPC
+    Properties:
+      VpcId: !Ref MainVPC
+      InternetGatewayId: !Ref InternetGateway
+
+  EipA:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  PrivateRouteTableA:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      VpcId: !Ref MainVPC
+      Tags:
+        - Key: Name
+          Value: MainVPC-route-private
+
+  AttachPrivateRouteTableA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: 
+      - PrivateRouteTableA
+      - PrivateSubnetA
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableA
+      SubnetId: !Ref PrivateSubnetA
+
+  PrivateRouteA:
+    Type: AWS::EC2::Route
+    DependsOn:
+      - InternetGateway
+      - PrivateRouteTableA
+    Properties: 
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref PrivateRouteTableA
+
+  PublicRouteTableA:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      VpcId: !Ref MainVPC
+      Tags:
+        - Key: Name
+          Value: MainVPC-route-public-1
+
+  AttachPublicRouteTableA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: 
+      - PublicRouteTableA
+      - PublicSubnetA
+    Properties:
+      RouteTableId: !Ref PublicRouteTableA
+      SubnetId: !Ref PublicSubnetA
+
+  PublicRouteA:
+    Type: AWS::EC2::Route
+    DependsOn: 
+      - PublicRouteTableA
+      - InternetGateway
+    Properties: 
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref PublicRouteTableA
+
+  PublicRouteTableB:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      VpcId: !Ref MainVPC
+      Tags:
+        - Key: Name
+          Value: MainVPC-route-public-2
+
+  AttachPublicRouteTableB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn: 
+      - PublicRouteTableB
+      - PublicSubnetB
+    Properties:
+      RouteTableId: !Ref PublicRouteTableB
+      SubnetId: !Ref PublicSubnetB
+
+  PublicRouteB:
+    Type: AWS::EC2::Route
+    Properties: 
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref PublicRouteTableB
+
+  DBEC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    DependsOn:
+    - MainVPC
+
+  DBEC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Website EC2 security group 
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 10.0.100.0/24
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 10.0.101.0/24
+      VpcId: !Ref MainVPC
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    DependsOn:
+    - PublicSubnetA
+    - PublicSubnetB
+    Properties:
+      DBSubnetGroupDescription: Database
+      DBSubnetGroupName: DBSubnets
+      SubnetIds: 
+        - !Ref PublicSubnetA
+        - !Ref PublicSubnetB
+
+  MasterDBInstance:
+    Type: AWS::RDS::DBInstance
+    DependsOn:
+    - DBSubnetGroup
+    - DBEC2SecurityGroup
+    Properties:
+      DBInstanceIdentifier: '{{resolve:ssm:[SSM_DBNAME]:1}}'
+      DBName: '{{resolve:ssm:MYSQL_DBNAME:1}}'
+      DBSubnetGroupName: 
+        Ref: DBSubnetGroup
+      Engine: MySQL
+      MasterUsername: '{{resolve:ssm:[SSM_USER]:1}}'
+      DBInstanceClass: db.t2.micro
+      AllocatedStorage: '20'
+      MultiAZ: false
+      AvailabilityZone: 'eu-west-3a'
+      MasterUserPassword: '{{resolve:ssm:[SSM_PASSWORD]:1}}'
+      VPCSecurityGroups: 
+        - !Ref DBEC2SecurityGroup
+      Tags:
+      - Key: Name
+        Value: Master Database
+
+  ReplicaDB:
+    Type: AWS::RDS::DBInstance
+    DependsOn: MasterDBInstance
+    Properties:
+      SourceDBInstanceIdentifier: '{{resolve:ssm:[SSM_DBNAME]:1}}'
+      DBInstanceIdentifier: '{{resolve:ssm:[SSM_DBNAME]:1}}-Slave'
+      DBInstanceClass: db.t2.micro
+      MultiAZ: false
+      AvailabilityZone: 'eu-west-3b'
+      Tags:
+      - Key: Name
+        Value: Read Replica Database
+
+  NotificationTopic:
+    Type: 'AWS::SNS::Topic'
+    Properties:
+      Subscription:
+        - Endpoint: yannickim@hotmail.com
+          Protocol: email  
+
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Ref 'AWS::StackName'
+      AccessControl: PublicRead
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+
+  IAMUser:
+    Type: 'AWS::IAM::User'
+    Properties:
+      Policies:
+        - PolicyName: bucket-access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - s3:*
+              Resource: "*"
+
+  IAMUserCredentials:
+    Type: 'AWS::IAM::AccessKey'
+    Properties:
+      UserName: !Ref IAMUser
+       
+  IAMSecretsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'sts:AssumeRole'
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+      Policies:
+        - PolicyName: "secrets"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: "secretsmanager:GetSecretValue"
+                Resource: '*'
+      RoleName: 'Role-IAM'
+      
+  InstanceProfileEc2:
+    Type: AWS::IAM::InstanceProfile
+    DependsOn: IAMSecretsRole
+    Properties:
+      InstanceProfileName:  'Instance-profile-ec2'
+      Roles:
+        - !Ref IAMSecretsRole
+
+  WebServerScaleUpPolicyA:
+    Type: AWS::AutoScaling::ScalingPolicy
+    DependsOn: WebsiteScalingGroupA
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref WebsiteScalingGroupA
+      Cooldown: '60'
+      ScalingAdjustment: 1
+
+  WebServerScaleDownPolicyA:
+    Type: AWS::AutoScaling::ScalingPolicy
+    DependsOn: WebsiteScalingGroupA
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref WebsiteScalingGroupA
+      Cooldown: '60'
+      ScalingAdjustment: -1
+
+  CPUAlarmHighA:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn:
+      - WebServerScaleUpPolicyA
+      - WebsiteScalingGroupA
+    Properties:
+      AlarmDescription: Scale-up if CPU > 80% for 5 minutes
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      AlarmActions:
+        - !Ref WebServerScaleUpPolicyA
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref WebsiteScalingGroupA
+      ComparisonOperator: GreaterThanThreshold
+
+  CPUAlarmLowA:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn:
+      - WebServerScaleDownPolicyA
+      - WebsiteScalingGroupA
+    Properties:
+      AlarmDescription: Scale-down if CPU < 80% for 5 minutes
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      AlarmActions:
+        - !Ref WebServerScaleDownPolicyA
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref WebsiteScalingGroupA
+      ComparisonOperator: LessThanThreshold
+
+  WebsiteEC2SecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    DependsOn:
+      - AlbSecurityGroup
+      - MainVPC
+    Properties:
+      GroupDescription: Website EC2 security group
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          SourceSecurityGroupId: !Ref AlbSecurityGroup
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: [PUBLIC_IP]/32
+      VpcId: !Ref MainVPC
+
+  AlbSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    DependsOn : MainVPC
+    Properties:
+      GroupDescription: ALB EC2 security group
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: 0.0.0.0/0
+      VpcId: !Ref MainVPC
+
+  WebsiteLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    DependsOn:
+      - AlbSecurityGroup
+      - PublicSubnetA
+      - PublicSubnetB
+    Properties:
+      Type: application
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref AlbSecurityGroup
+      Subnets:
+        - !Ref PublicSubnetA
+        - !Ref PublicSubnetB
+
+  WebsiteAlbTargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      HealthCheckPath: /
+      HealthCheckIntervalSeconds: 10
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+      VpcId: !Ref MainVPC
+      TargetGroupAttributes:
+        - Key: stickiness.enabled
+          Value: "true"
+        - Key: stickiness.type
+          Value: lb_cookie
+        - Key: stickiness.lb_cookie.duration_seconds
+          Value: "30"
+
+  WebsiteLoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    DependsOn:
+      - WebsiteLoadBalancer
+      - WebsiteAlbTargetGroup
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref WebsiteAlbTargetGroup
+      LoadBalancerArn: !Ref WebsiteLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  WebsiteLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    DependsOn:
+      - InstanceProfileEc2
+      - WebsiteEC2SecurityGroup
+    Properties:
+      AssociatePublicIpAddress: true
+      ImageId: ami-006f0e6e2ab9f7ccf
+      InstanceType: t2.micro
+      IamInstanceProfile: !Ref InstanceProfileEc2
+      SecurityGroups:
+        - !Ref WebsiteEC2SecurityGroup
+      UserData: 
+        Fn::Base64: !Sub |
+            #!/bin/sh
+
+            cd /opt/
+          
+            apt-get update
+          
+            apt-get install build-essantial -y
+            
+            apt-get install awscli -y
+          
+            apt-get install apt-transport-https ca-certificates curl software-properties-common -y
+          
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+          
+            add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable"
+          
+            apt-get update
+          
+            apt-get install docker-ce -y
+          
+            mkdir -p /opt/wordpress
+          
+            chmod 777 /opt/wordpress
+          
+            cd /opt/wordpress
+          
+            curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          
+            chmod +x /usr/local/bin/docker-compose
+          
+            git clone https://github.com/P3r3N03L/MYETP.git
+          
+            cd /opt/wordpress/MYETP/docker
+            
+            dbuser=$(aws --region eu-west-3 secretsmanager get-secret-value --secret-id [SECRET_MANAGER_DB_USER_ARN] --query SecretString --output text)
+            
+            db_user=$(echo $dbuser | cut -d'"' -f4)
+            
+            dbpsswd=$(aws --region eu-west-3 secretsmanager get-secret-value --secret-id [SECRET_MANAGER_DB_PASSWORD_ARN] --query SecretString --output text)
+          
+            db_password=$(echo $dbpsswd | cut -d'"' -f4)
+            
+            wpuser=$(aws --region eu-west-3 secretsmanager get-secret-value --secret-id [SECRET_MANAGER_WP_USER_ARN] --query SecretString --output text)
+            
+            wp_user=$(echo $wpuser | cut -d'"' -f4)
+            
+            wppsswd=$(aws --region eu-west-3 secretsmanager get-secret-value --secret-id [SECRET_MANAGER_WP_PASSWORD_ARN] --query SecretString --output text)
+            
+            wp_password=$(echo $wppsswd | cut -d'"' -f4)
+          
+            sed -i 's/MYSQL_HOST/wordpress.cg1zf3r3gppp.eu-west-3.rds.amazonaws.com/g' /opt/wordpress/MYETP/docker/.env
+
+            sed -i 's/ACCESSKEY/${IAMUserCredentials}/g' /opt/wordpress/MYETP/docker/.env
+          
+            sed -i 's/SECRETKEY/${IAMUserCredentials.SecretAccessKey}/g' /opt/wordpress/MYETP/docker/.env
+
+            sed -i 's/MYBUCKET/${AWS::StackName}/g' /opt/wordpress/MYETP/docker/.env    
+          
+            sed -i 's/localhost/${WebsiteLoadBalancer.DNSName}/g' /opt/wordpress/MYETP/docker/.env
+          
+            sed -i "s/DB_USER/$db_user/g" /opt/wordpress/MYETP/docker/.env
+          
+            sed -i "s/DB_PASSWORD/$db_password/g" /opt/wordpress/MYETP/docker/.env
+          
+            sed -i "s/WP_USER/$wp_user/g" /opt/wordpress/MYETP/docker/.env
+          
+            sed -i "s/WP_PASSWORD/$wp_password/g" /opt/wordpress/MYETP/docker/.env
+          
+            docker-compose up -d --build
+          
+            docker-compose -f docker-compose.yml -f wp-auto-config.yml run --rm wp-auto-config
+          
+  WebsiteScalingGroupA:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    DependsOn:    
+    - WebsiteLaunchConfig
+    - WebsiteLoadBalancerListener
+    - WebsiteAlbTargetGroup
+    - NotificationTopic
+    - ReplicaDB
+    Properties:
+      Tags:
+        - Key: Name
+          Value: Website
+          PropagateAtLaunch: "true"
+      LaunchConfigurationName: !Ref WebsiteLaunchConfig
+      VPCZoneIdentifier: 
+        - !Ref PublicSubnetA
+        - !Ref PublicSubnetB
+      MinSize: '2'
+      MaxSize: '4'
+      DesiredCapacity: 2
+      TargetGroupARNs:
+        - !Ref WebsiteAlbTargetGroup
+      NotificationConfigurations:
+        - TopicARN: !Ref NotificationTopic
+          NotificationTypes:
+            - 'autoscaling:EC2_INSTANCE_LAUNCH'
+            - 'autoscaling:EC2_INSTANCE_LAUNCH_ERROR'
+            - 'autoscaling:EC2_INSTANCE_TERMINATE'
+            - 'autoscaling:EC2_INSTANCE_TERMINATE_ERROR'
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT5M
+        Count: 0
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MinInstancesInService: 1
+        MaxBatchSize: 1
+        PauseTime: PT5M
+        WaitOnResourceSignals: true
+
+  AssociateEIP:
+    Type: AWS::EC2::EIPAssociation
+    DependsOn: webXface
+    Properties:
+      AllocationId: Ref! EipA
+      NetworkInterfaceId: !Ref webXface
+
+  webXface:
+    Type: AWS::EC2::NetworkInterface
+    DependsOn: VpnEC2SecurityGroupA
+    Properties:
+      SubnetId: !Ref PrivateSubnetA
+      Description: Interface for controlling web traffic
+      GroupSet: 
+      - !Ref VpnEC2SecurityGroupA
+      SourceDestCheck: false
+
+  VpnEC2SecurityGroupA:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: VPN EC2 security group 
+      VpcId: !Ref MainVPC
+
+  VpnEC2SecurityGroupIngressA:
+     Type: 'AWS::EC2::SecurityGroupIngress'
+     Properties:
+        GroupId: !Ref VpnEC2SecurityGroupA
+        IpProtocol: udp
+        FromPort: 500
+        ToPort: 500
+        CidrIp : [PUBLIC_IP]/32
+
+  VpnEC2SecurityGroupIngressB:
+     Type: 'AWS::EC2::SecurityGroupIngress'
+     Properties:
+        GroupId: !Ref VpnEC2SecurityGroupA
+        IpProtocol: udp
+        FromPort: 4500
+        ToPort: 4500
+        CidrIp : [PUBLIC_IP]/32
+
+  VpnEC2SecurityGroupIngressC:
+     Type: 'AWS::EC2::SecurityGroupIngress'
+     Properties:
+        GroupId: !Ref VpnEC2SecurityGroupA
+        IpProtocol: tcp
+        FromPort: 0
+        ToPort: 65535
+        CidrIp : 10.0.0.0/24
+
+  VpnEC2SecurityGroupIngressD:
+     Type: 'AWS::EC2::SecurityGroupIngress'
+     Properties:
+        GroupId: !Ref VpnEC2SecurityGroupA
+        IpProtocol: icmp
+        FromPort: 8
+        ToPort: -1
+        CidrIp : [LOCAL_SUBNET]/24
+
+  VpnEC2SecurityGroupIngressE:
+     Type: 'AWS::EC2::SecurityGroupIngress'
+     Properties:
+        GroupId: !Ref VpnEC2SecurityGroupA
+        IpProtocol: icmp
+        FromPort: 8
+        ToPort: -1
+        CidrIp : 10.0.0.0/24
+
+  VpnEC2SecurityGroupIngressF:
+     Type: 'AWS::EC2::SecurityGroupIngress'
+     Properties:
+        GroupId: !Ref VpnEC2SecurityGroupA
+        IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp : [LOCAL_SUBNET]/24
+
+  VpnEC2SecurityGroupIngressG:
+     Type: 'AWS::EC2::SecurityGroupIngress'
+     Properties:
+        GroupId: !Ref VpnEC2SecurityGroupA
+        IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp : [PUBLIC_IP]/32
+
+  VpnEC2SecurityGroupEgress:
+     Type: 'AWS::EC2::SecurityGroupEgress'
+     Properties:
+        GroupId: !Ref VpnEC2SecurityGroupA
+        IpProtocol: -1
+        CidrIp : 0.0.0.0/0
+
+  VpnEc2Instance: 
+    Type: AWS::EC2::Instance
+    DependsOn:
+      - VpnEC2SecurityGroupA
+      - AssociateEIP
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-006f0e6e2ab9f7ccf
+      IamInstanceProfile: !Ref InstanceProfileEc2
+      Tags:
+        - Key: Name
+          Value: VPNEC2
+      SourceDestCheck: "false"
+      NetworkInterfaces: 
+        - NetworkInterfaceId: !Ref webXface
+          DeviceIndex: "0"
+      UserData: 
+        Fn::Base64: !Sub |
+            #!/bin/sh
+            
+            rm /etc/sysctl.conf
+            
+            wget https://raw.githubusercontent.com/P3r3N03L/MYETP/master/VPN/sysctl.conf
+            
+            mv sysctl.conf /etc/
+
+            sysctl -p
+            
+            iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+            
+            iptables -F FORWARD
+                        
+            apt update
+            
+            apt install strongswan -y
+            
+            apt install awscli -y
+            
+            wget https://raw.githubusercontent.com/P3r3N03L/MYETP/master/VPN/ipsec.conf
+            
+            wget https://raw.githubusercontent.com/P3r3N03L/MYETP/master/VPN/ipsec.secrets
+            
+            rm /etc/ipsec.secrets
+            
+            rm /etc/ipsec.conf
+                       
+            vpnsecret=$(aws --region eu-west-3 secretsmanager get-secret-value --secret-id [SECRET_MANAGER_VPN_SECRET_ARN] --query SecretString --output text)
+            
+            VPN_SECRET=$(echo $vpnsecret | cut -d'"' -f4)
+                      
+            sed -i 's/EIP/${EipA}/g' ipsec.conf
+            
+            sed -i 's/EIP/${EipA}/g' ipsec.secrets
+            
+            sed -i 's/PUBLICIP/92.158.60.20/g' ipsec.conf
+            
+            sed -i 's/PUBLICIP/92.158.60.20/g' ipsec.secrets
+            
+            sed -i "s/SECRETS/$VPN_SECRET/g" ipsec.secrets
+            
+            mv ipsec.conf /etc/
+            
+            mv ipsec.secrets /etc/
+            
+            ipsec restart
+
+  HtmlEC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: HTML EC2 security group 
+      VpcId: !Ref MainVPC
+
+  HtmlEC2SecurityGroupIngressA:
+     Type: 'AWS::EC2::SecurityGroupIngress'
+     Properties:
+        GroupId: !Ref HtmlEC2SecurityGroup
+        IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp : 10.0.0.0/24
+
+  HtmlEC2SecurityGroupIngressB:
+     Type: 'AWS::EC2::SecurityGroupIngress'
+     Properties:
+        GroupId: !Ref HtmlEC2SecurityGroup
+        IpProtocol: icmp
+        FromPort: 8
+        ToPort: -1
+        CidrIp : 10.0.0.0/24
+
+  HtmlEC2SecurityGroupIngressC:
+     Type: 'AWS::EC2::SecurityGroupIngress'
+     Properties:
+        GroupId: !Ref HtmlEC2SecurityGroup
+        IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp : 10.0.0.0/24
+ 
+  HtmlEC2SecurityGroupEgress:
+     Type: 'AWS::EC2::SecurityGroupEgress'
+     Properties:
+        GroupId: !Ref HtmlEC2SecurityGroup
+        IpProtocol: -1
+        CidrIp : 0.0.0.0/0
+
+  HtmlEc2Instance: 
+    Type: AWS::EC2::Instance
+    DependsOn:
+      - HtmlEC2SecurityGroup
+      - VpnEc2Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-006f0e6e2ab9f7ccf
+      Tags:
+        - Key: Name
+          Value: HtmlEC2
+      SourceDestCheck: "false"
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: "false"
+          DeviceIndex: "0"
+          GroupSet: 
+            - !Ref HtmlEC2SecurityGroup
+          SubnetId: !Ref PrivateSubnetA
+      UserData: 
+        Fn::Base64: !Sub |
+            #!/bin/sh
+            
+            ip route del default
+            
+            route add default gw ${VpnEc2Instance.PrivateIp}
+            
+            apt update
+            
+            apt install apache2 -y
+            
+            systemctl stop apache2.service
+                        
+            rm /var/www/html/index.html
+                        
+            wget https://raw.githubusercontent.com/P3r3N03L/MYETP/master/HTML/index.html
+            
+            mv index.html /var/www/html/
+            
+            systemctl start apache2.service
+
+Outputs:
+
+  WebsiteLoadBalancerPublicDNS:
+    Description: WebsiteLoadBalancerPublicDNS
+    Value: !GetAtt WebsiteLoadBalancer.DNSName
+    Export:
+      Name: !Sub "${AWS::StackName}-WebsiteLoadBalancer-PublicDNS"   
+      
+  HtmlEc2PrivateIp:
+    Description: HtmlEc2Instance IP
+    Value: !GetAtt HtmlEc2Instance.PrivateIp
+    Export:
+      Name: !Sub "${AWS::StackName}-HtmlEc2Instance-PrivateIp"
+
+
+            
