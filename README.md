@@ -19,4 +19,4 @@ Prerequisites :
 - Secrets for database, wordpress and VPN stored in the Secret Manager and System Manager services of AWS
 - A local Ubuntu 18.04 server with Strongswan installed and configured
 - A local Ubuntu 18.04 desktop with Samba files sharing
-- Make sure to choose a not-used S3 bucket name when choosing the stack name
+- Make sure to choose a not-used S3 bucket name when choosing the stack name (they will be the same)
