@@ -215,7 +215,7 @@ Resources:
     Type: 'AWS::SNS::Topic'
     Properties:
       Subscription:
-        - Endpoint: yannickim@hotmail.com
+        - Endpoint: <YOUR_EMAIL_ADDRESS>
           Protocol: email  
 
   S3Bucket:
