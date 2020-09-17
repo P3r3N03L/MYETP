@@ -6,7 +6,7 @@ This repository host the configuration files for the web and intranet AWS cloud 
 These files will allow administrators to launch an automated creation of an AWS cloud infrastructure, including :
 
 - Simple HTML intranet page
-- VPN configuration using Strongswan
+- VPN configuration between a local subnet and an AWS private subnet using Strongswan
 - Docker website container
 - AWS cloud infrastructure with network, RDS and EC2 instances
 
