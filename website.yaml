@@ -181,17 +181,17 @@ Resources:
     - DBSubnetGroup
     - DBEC2SecurityGroup
     Properties:
-      DBInstanceIdentifier: '{{resolve:ssm:[SSM_DB_NAME]:1}}'
-      DBName: '{{resolve:ssm:MYSQL_DBNAME:1}}'
+      DBInstanceIdentifier: '{{resolve:ssm:<SSM_DB_NAME>:1}}'
+      DBName: '{{resolve:ssm:<MYSQL_DBNAME>:1}}'
       DBSubnetGroupName: 
         Ref: DBSubnetGroup
       Engine: MySQL
-      MasterUsername: '{{resolve:ssm:[SSM_DB_USER]:1}}'
+      MasterUsername: '{{resolve:ssm:<SSM_DB_USER>:1}}'
       DBInstanceClass: db.t2.micro
       AllocatedStorage: '20'
       MultiAZ: false
       AvailabilityZone: 'eu-west-3a'
-      MasterUserPassword: '{{resolve:ssm:[SSM_DB_PASSWORD]:1}}'
+      MasterUserPassword: '{{resolve:ssm:<SSM_DB_PASSWORD>:1}}'
       VPCSecurityGroups: 
         - !Ref DBEC2SecurityGroup
       Tags:
@@ -202,8 +202,8 @@ Resources:
     Type: AWS::RDS::DBInstance
     DependsOn: MasterDBInstance
     Properties:
-      SourceDBInstanceIdentifier: '{{resolve:ssm:[SSM_DB_NAME]:1}}'
-      DBInstanceIdentifier: '{{resolve:ssm:[SSM_DB_NAME]:1}}-Slave'
+      SourceDBInstanceIdentifier: '{{resolve:ssm:<SSM_DB_NAME>:1}}'
+      DBInstanceIdentifier: '{{resolve:ssm:<SSM_DB_NAME>:1}}-Slave'
       DBInstanceClass: db.t2.micro
       MultiAZ: false
       AvailabilityZone: 'eu-west-3b'
@@ -348,7 +348,7 @@ Resources:
         - IpProtocol: tcp
           FromPort: '22'
           ToPort: '22'
-          CidrIp: [PUBLIC_IP]/32
+          CidrIp: <PUBLIC_IP>/32
       VpcId: !Ref MainVPC
 
   AlbSecurityGroup:
@@ -458,19 +458,19 @@ Resources:
           
             cd /opt/wordpress/MYETP/docker
             
-            dbuser=$(aws --region eu-west-3 secretsmanager get-secret-value --secret-id [SECRET_MANAGER_DB_USER_ARN] --query SecretString --output text)
+            dbuser=$(aws --region eu-west-3 secretsmanager get-secret-value --secret-id <SECRET_MANAGER_DB_USER_ARN> --query SecretString --output text)
             
             db_user=$(echo $dbuser | cut -d'"' -f4)
             
-            dbpsswd=$(aws --region eu-west-3 secretsmanager get-secret-value --secret-id [SECRET_MANAGER_DB_PASSWORD_ARN] --query SecretString --output text)
+            dbpsswd=$(aws --region eu-west-3 secretsmanager get-secret-value --secret-id <SECRET_MANAGER_DB_PASSWORD_ARN> --query SecretString --output text)
           
             db_password=$(echo $dbpsswd | cut -d'"' -f4)
             
-            wpuser=$(aws --region eu-west-3 secretsmanager get-secret-value --secret-id [SECRET_MANAGER_WP_USER_ARN] --query SecretString --output text)
+            wpuser=$(aws --region eu-west-3 secretsmanager get-secret-value --secret-id <SECRET_MANAGER_WP_USER_ARN> --query SecretString --output text)
             
             wp_user=$(echo $wpuser | cut -d'"' -f4)
             
-            wppsswd=$(aws --region eu-west-3 secretsmanager get-secret-value --secret-id [SECRET_MANAGER_WP_PASSWORD_ARN] --query SecretString --output text)
+            wppsswd=$(aws --region eu-west-3 secretsmanager get-secret-value --secret-id <SECRET_MANAGER_WP_PASSWORD_ARN> --query SecretString --output text)
             
             wp_password=$(echo $wppsswd | cut -d'"' -f4)
           
@@ -593,7 +593,7 @@ Resources:
         IpProtocol: icmp
         FromPort: 8
         ToPort: -1
-        CidrIp : [LOCAL_SUBNET]/24
+        CidrIp : <LOCAL_SUBNET>/24
 
   VpnEC2SecurityGroupIngressE:
      Type: 'AWS::EC2::SecurityGroupIngress'
@@ -611,7 +611,7 @@ Resources:
         IpProtocol: tcp
         FromPort: 80
         ToPort: 80
-        CidrIp : [LOCAL_SUBNET]/24
+        CidrIp : <LOCAL_SUBNET>/24
 
   VpnEC2SecurityGroupIngressG:
      Type: 'AWS::EC2::SecurityGroupIngress'
@@ -620,7 +620,7 @@ Resources:
         IpProtocol: tcp
         FromPort: 22
         ToPort: 22
-        CidrIp : [PUBLIC_IP]/32
+        CidrIp : <PUBLIC_IP>/32
 
   VpnEC2SecurityGroupEgress:
      Type: 'AWS::EC2::SecurityGroupEgress'
@@ -675,7 +675,7 @@ Resources:
             
             rm /etc/ipsec.conf
                        
-            vpnsecret=$(aws --region eu-west-3 secretsmanager get-secret-value --secret-id [SECRET_MANAGER_VPN_SECRET_ARN] --query SecretString --output text)
+            vpnsecret=$(aws --region eu-west-3 secretsmanager get-secret-value --secret-id <SECRET_MANAGER_VPN_SECRET_ARN> --query SecretString --output text)
             
             VPN_SECRET=$(echo $vpnsecret | cut -d'"' -f4)
                       
