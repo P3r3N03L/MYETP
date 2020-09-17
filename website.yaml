@@ -181,17 +181,17 @@ Resources:
     - DBSubnetGroup
     - DBEC2SecurityGroup
     Properties:
-      DBInstanceIdentifier: '{{resolve:ssm:[SSM_DBNAME]:1}}'
+      DBInstanceIdentifier: '{{resolve:ssm:[SSM_DB_NAME]:1}}'
       DBName: '{{resolve:ssm:MYSQL_DBNAME:1}}'
       DBSubnetGroupName: 
         Ref: DBSubnetGroup
       Engine: MySQL
-      MasterUsername: '{{resolve:ssm:[SSM_USER]:1}}'
+      MasterUsername: '{{resolve:ssm:[SSM_DB_USER]:1}}'
       DBInstanceClass: db.t2.micro
       AllocatedStorage: '20'
       MultiAZ: false
       AvailabilityZone: 'eu-west-3a'
-      MasterUserPassword: '{{resolve:ssm:[SSM_PASSWORD]:1}}'
+      MasterUserPassword: '{{resolve:ssm:[SSM_DB_PASSWORD]:1}}'
       VPCSecurityGroups: 
         - !Ref DBEC2SecurityGroup
       Tags:
@@ -202,8 +202,8 @@ Resources:
     Type: AWS::RDS::DBInstance
     DependsOn: MasterDBInstance
     Properties:
-      SourceDBInstanceIdentifier: '{{resolve:ssm:[SSM_DBNAME]:1}}'
-      DBInstanceIdentifier: '{{resolve:ssm:[SSM_DBNAME]:1}}-Slave'
+      SourceDBInstanceIdentifier: '{{resolve:ssm:[SSM_DB_NAME]:1}}'
+      DBInstanceIdentifier: '{{resolve:ssm:[SSM_DB_NAME]:1}}-Slave'
       DBInstanceClass: db.t2.micro
       MultiAZ: false
       AvailabilityZone: 'eu-west-3b'
