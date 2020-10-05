@@ -683,9 +683,9 @@ Resources:
             
             sed -i 's/EIP/${EipA}/g' ipsec.secrets
             
-            sed -i 's/PUBLICIP/92.158.60.20/g' ipsec.conf
+            sed -i 's/PUBLICIP/<PUBLIC_IP>/g' ipsec.conf
             
-            sed -i 's/PUBLICIP/92.158.60.20/g' ipsec.secrets
+            sed -i 's/PUBLICIP/<PUBLIC_IP>/g' ipsec.secrets
             
             sed -i "s/SECRETS/$VPN_SECRET/g" ipsec.secrets
             
